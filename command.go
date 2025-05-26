@@ -8,6 +8,7 @@ import (
 	"github.com/liujed/caddy-dns01proxy/flags"
 	"github.com/liujed/goutil/optionals"
 	"github.com/spf13/cobra"
+	"go.uber.org/zap"
 )
 
 // Flag definitions.
@@ -69,6 +70,19 @@ func cmdRun(fs caddycmd.Flags) (int, error) {
 	cfg, err := caddyConfigFromConfigFile(configFlag)
 	if err != nil {
 		return caddy.ExitCodeFailedStartup, err
+	}
+
+	// Turn on debug logs if requested.
+	if fs.Bool(flgDebug.Name) {
+		cfg.Logging = &caddy.Logging{
+			Logs: map[string]*caddy.CustomLog{
+				"default": {
+					BaseLog: caddy.BaseLog{
+						Level: zap.DebugLevel.CapitalString(),
+					},
+				},
+			},
+		}
 	}
 
 	caddy.Log().Info(fmt.Sprintf("Starting %s", Release()))
