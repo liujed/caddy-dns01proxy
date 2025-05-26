@@ -5,7 +5,26 @@ import (
 
 	"github.com/caddyserver/caddy/v2"
 	caddycmd "github.com/caddyserver/caddy/v2/cmd"
+	"github.com/liujed/caddy-dns01proxy/flags"
+	"github.com/liujed/goutil/optionals"
 	"github.com/spf13/cobra"
+)
+
+// Flag definitions.
+var (
+	flgConfig = flags.Flag[string]{
+		Name:         "config",
+		ShortName:    optionals.Some('c'),
+		UsageMsg:     "read configuration from `FILE`",
+		Required:     true,
+		FilenameExts: optionals.Some([]string{"json"}),
+	}
+
+	flgDebug = flags.Flag[bool]{
+		Name:      "debug",
+		ShortName: optionals.Some('v'),
+		UsageMsg:  "turn on verbose debug logs",
+	}
 )
 
 func init() {
@@ -27,6 +46,9 @@ Designed to work with:
   * Caddy's 'acmeproxy' DNS provider module, and
   * lego's 'httpreq' DNS provider.`,
 		CobraFunc: func(cmd *cobra.Command) {
+			flags.AddStringFlag(cmd, flgConfig)
+			flags.AddBoolFlag(cmd, flgDebug)
+
 			cmd.RunE = caddycmd.WrapCommandFuncForCobra(cmdRun)
 
 			cmd.AddCommand(&cobra.Command{
