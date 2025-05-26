@@ -63,5 +63,20 @@ Designed to work with:
 }
 
 func cmdRun(fs caddycmd.Flags) (int, error) {
-	return caddy.ExitCodeSuccess, nil
+	caddy.TrapSignals()
+
+	configFlag := fs.String(flgConfig.Name)
+	cfg, err := caddyConfigFromConfigFile(configFlag)
+	if err != nil {
+		return caddy.ExitCodeFailedStartup, err
+	}
+
+	caddy.Log().Info(fmt.Sprintf("Starting %s", Release()))
+
+	err = caddy.Run(cfg)
+	if err != nil {
+		return caddy.ExitCodeFailedStartup, err
+	}
+
+	select {}
 }
