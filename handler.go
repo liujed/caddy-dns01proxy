@@ -8,6 +8,7 @@ import (
 	"github.com/caddyserver/caddy/v2/caddyconfig"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp/caddyauth"
+	"github.com/liujed/caddy-dns01proxy/jsonutil"
 	"github.com/liujed/goutil/optionals"
 )
 
@@ -108,8 +109,50 @@ func (h *Handler) Provision(ctx caddy.Context) error {
 func (h *Handler) ServeHTTP(
 	w http.ResponseWriter,
 	req *http.Request,
-	_ caddyhttp.Handler,
+	nextHandler caddyhttp.Handler,
 ) error {
-	w.WriteHeader(http.StatusNotFound)
-	return nil
+	var mode handlerMode
+	switch req.URL.Path {
+	case "/present":
+		if req.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return nil
+		}
+		mode = hmPresent
+
+	case "/cleanup":
+		if req.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			return nil
+		}
+		mode = hmCleanup
+
+	default:
+		return nextHandler.ServeHTTP(w, req)
+	}
+
+	handlerImpl := jsonutil.WrapHandler(h.handleDNSRequest(mode))
+	if auth, exists := h.Authentication.Get(); exists {
+		return auth.ServeHTTP(w, req, handlerImpl)
+	}
+	return handlerImpl.ServeHTTP(w, req)
+}
+
+type handlerMode string
+
+const (
+	hmPresent handlerMode = "present"
+	hmCleanup handlerMode = "cleanup"
+)
+
+func (h *Handler) handleDNSRequest(
+	mode handlerMode,
+) func(*http.Request, any) (int, optionals.Optional[any], error) {
+	return func(
+		req *http.Request,
+		reqBody any,
+	) (httpStatus int, respBody optionals.Optional[any], err error) {
+		// TODO
+		return http.StatusInternalServerError, optionals.None[any](), nil
+	}
 }
