@@ -9,6 +9,7 @@ import (
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
+	"github.com/caddyserver/caddy/v2/modules/caddytls"
 )
 
 func init() {
@@ -18,6 +19,9 @@ func init() {
 // A Caddy application module that implements the dns01proxy server.
 type App struct {
 	Handler
+
+	// The server's hostnames. Used for obtaining TLS certificates.
+	Hostnames []string `json:"hostnames"`
 
 	// The sockets on which to listen.
 	Listen []string `json:"listen"`
@@ -53,8 +57,19 @@ func (app *App) Provision(ctx caddy.Context) error {
 						Routes:            app.makeRoutes(),
 						TrustedProxiesRaw: app.TrustedProxiesRaw,
 
+						// Turn off HTTP-to-HTTPS redirection. It masks insecure client
+						// configurations.
+						AutoHTTPS: &caddyhttp.AutoHTTPSConfig{
+							DisableRedir: true,
+						},
+
 						// Turns on logging.
 						Logs: &caddyhttp.ServerLogConfig{},
+
+						// Turns on TLS.
+						TLSConnPolicies: caddytls.ConnectionPolicies{
+							&caddytls.ConnectionPolicy{},
+						},
 					},
 				},
 			},
@@ -80,6 +95,14 @@ func (app *App) Stop() error {
 func (app *App) makeRoutes() caddyhttp.RouteList {
 	return caddyhttp.RouteList{
 		{
+			MatcherSetsRaw: caddyhttp.RawMatcherSets{
+				{
+					"host": caddyconfig.JSON(
+						app.Hostnames,
+						nil,
+					),
+				},
+			},
 			HandlersRaw: []json.RawMessage{
 				caddyconfig.JSONModuleObject(
 					app.Handler,
@@ -97,6 +120,34 @@ func (app *App) makeRoutes() caddyhttp.RouteList {
 					"static_response",
 					nil,
 				),
+			},
+		},
+	}
+}
+
+// Returns a TLS app configuration that uses the user-specified DNS provider for
+// ACME challenges during TLS automation.
+func (app *App) MakeTLSConfig() caddytls.TLS {
+	return caddytls.TLS{
+		Automation: &caddytls.AutomationConfig{
+			Policies: []*caddytls.AutomationPolicy{
+				{
+					IssuersRaw: []json.RawMessage{
+						caddyconfig.JSONModuleObject(
+							caddytls.ACMEIssuer{
+								Challenges: &caddytls.ChallengesConfig{
+									DNS: &caddytls.DNSChallengeConfig{
+										ProviderRaw: app.DNS.ProviderRaw,
+										Resolvers:   app.DNS.Resolvers,
+									},
+								},
+							},
+							"module",
+							"acme",
+							nil,
+						),
+					},
+				},
 			},
 		},
 	}

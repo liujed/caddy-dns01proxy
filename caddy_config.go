@@ -25,6 +25,13 @@ func caddyConfigFromConfigFile(path string) (*caddy.Config, error) {
 		config.Listen = []string{defaultListen}
 	}
 
+	appsRaw := caddy.ModuleMap{
+		"dns01proxy": caddyconfig.JSON(config, nil),
+
+		// Configure TLS automation to use the DNS provider.
+		"tls": caddyconfig.JSON(config.MakeTLSConfig(), nil),
+	}
+
 	return &caddy.Config{
 		Admin: &caddy.AdminConfig{
 			Disabled: true,
@@ -32,8 +39,6 @@ func caddyConfigFromConfigFile(path string) (*caddy.Config, error) {
 				Persist: ptr.Of(false),
 			},
 		},
-		AppsRaw: caddy.ModuleMap{
-			"dns01proxy": caddyconfig.JSON(config, nil),
-		},
+		AppsRaw: appsRaw,
 	}, nil
 }
