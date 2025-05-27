@@ -3,13 +3,17 @@ package caddydns01proxy
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp/caddyauth"
+	"github.com/caddyserver/certmagic"
+	"github.com/libdns/libdns"
 	"github.com/liujed/caddy-dns01proxy/jsonutil"
 	"github.com/liujed/goutil/optionals"
+	"go.uber.org/zap"
 )
 
 func init() {
@@ -32,6 +36,8 @@ type Handler struct {
 	// Identifies the domains at which each client is allowed to answer DNS-01
 	// challenges. Derived from [AccountsRaw].
 	ClientRegistry ClientRegistry `json:"-"`
+
+	logger *zap.Logger
 }
 
 var _ caddy.Module = (*Handler)(nil)
@@ -53,6 +59,8 @@ func (Handler) CaddyModule() caddy.ModuleInfo {
 }
 
 func (h *Handler) Provision(ctx caddy.Context) error {
+	h.logger = ctx.Logger()
+
 	// Provision DNS.
 	err := h.DNS.Provision(ctx)
 	if err != nil {
@@ -152,7 +160,79 @@ func (h *Handler) handleDNSRequest(
 		req *http.Request,
 		reqBody RequestBody,
 	) (httpStatus int, respBody optionals.Optional[ResponseBody], err error) {
-		// TODO
-		return http.StatusInternalServerError, optionals.None[ResponseBody](), nil
+		// Check that the user gave a valid request body.
+		if !reqBody.IsValid() {
+			return http.StatusBadRequest, optionals.None[ResponseBody](), nil
+		}
+
+		// Log the challenge domain that appears in the request.
+		addLogField(req, zap.String("domain", reqBody.ChallengeFQDN))
+
+		// Check that the user is authorized for the challenge domain in the
+		// request.
+		denyReasonOpt, err := h.ClientRegistry.AuthorizeUserChallengeDomain(
+			req,
+			reqBody.ChallengeFQDN,
+		)
+		if err != nil {
+			return 0, optionals.None[ResponseBody](),
+				fmt.Errorf("unable to authorize user for requested domain: %w", err)
+		}
+		if denyReason, denied := denyReasonOpt.Get(); denied {
+			addLogField(req, zap.String(logAuthorizationFailure, string(denyReason)))
+			return http.StatusForbidden, optionals.None[ResponseBody](), nil
+		}
+
+		// Figure out the challenge domain's DNS zone.
+		zone, err := certmagic.FindZoneByFQDN(
+			req.Context(),
+			h.logger,
+			reqBody.ChallengeFQDN,
+			certmagic.RecursiveNameservers(h.DNS.Resolvers),
+		)
+		if err != nil {
+			return 0, optionals.None[ResponseBody](),
+				fmt.Errorf(
+					"unable to find DNS zone for %q: %w",
+					reqBody.ChallengeFQDN,
+					err,
+				)
+		}
+
+		// Build the DNS record to create/delete.
+		ttl := time.Duration(h.DNS.TTL.GetOrDefault(0))
+		if mode == hmCleanup {
+			ttl = 0
+		}
+		records := []libdns.Record{
+			libdns.TXT{
+				Name: libdns.RelativeName(reqBody.ChallengeFQDN, zone),
+				TTL:  ttl,
+				Text: `"` + reqBody.Value + `"`,
+			},
+		}
+
+		switch mode {
+		case hmPresent:
+			// Create the DNS record.
+			_, err = h.DNS.Provider.AppendRecords(req.Context(), zone, records)
+			if err != nil {
+				return 0, optionals.None[ResponseBody](),
+					fmt.Errorf("error creating DNS record: %w", err)
+			}
+			return http.StatusOK, optionals.Some(reqBody), nil
+
+		case hmCleanup:
+			// Delete the DNS record.
+			_, err = h.DNS.Provider.DeleteRecords(req.Context(), zone, records)
+			if err != nil {
+				return 0, optionals.None[ResponseBody](),
+					fmt.Errorf("error deleting DNS record: %w", err)
+			}
+			return http.StatusOK, optionals.Some(reqBody), nil
+		}
+
+		return 0, optionals.None[ResponseBody](),
+			fmt.Errorf("unknown handler mode: %q", mode)
 	}
 }

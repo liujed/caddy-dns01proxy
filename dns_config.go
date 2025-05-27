@@ -16,6 +16,10 @@ type DNSConfig struct {
 
 	// The TTL to use for the DNS TXT records when answering challenges.
 	TTL optionals.Optional[caddy.Duration] `json:"ttl"`
+
+	// Custom DNS resolvers to prefer over system/built-in defaults. Often
+	// necessary to configure when using split-horizon DNS.
+	Resolvers []string `json:"resolvers,omitempty"`
 }
 
 var _ caddy.Provisioner = (*Handler)(nil)
