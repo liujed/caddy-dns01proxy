@@ -147,12 +147,12 @@ const (
 
 func (h *Handler) handleDNSRequest(
 	mode handlerMode,
-) func(*http.Request, any) (int, optionals.Optional[any], error) {
+) func(*http.Request, RequestBody) (int, optionals.Optional[ResponseBody], error) {
 	return func(
 		req *http.Request,
-		reqBody any,
-	) (httpStatus int, respBody optionals.Optional[any], err error) {
+		reqBody RequestBody,
+	) (httpStatus int, respBody optionals.Optional[ResponseBody], err error) {
 		// TODO
-		return http.StatusInternalServerError, optionals.None[any](), nil
+		return http.StatusInternalServerError, optionals.None[ResponseBody](), nil
 	}
 }
