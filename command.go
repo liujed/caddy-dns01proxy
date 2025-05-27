@@ -2,6 +2,9 @@ package caddydns01proxy
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/caddyserver/caddy/v2"
 	caddycmd "github.com/caddyserver/caddy/v2/cmd"
@@ -92,5 +95,28 @@ func cmdRun(fs caddycmd.Flags) (int, error) {
 		return caddy.ExitCodeFailedStartup, err
 	}
 
-	select {}
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGHUP)
+	for sig := range sigChan {
+		switch sig {
+		case syscall.SIGHUP:
+			caddy.Log().Info("caught SIGHUP - reloading configuration")
+			cfg, err = caddyConfigFromConfigFile(configFlag)
+			if err != nil {
+				caddy.Log().Error("unable to read new configuration", zap.Error(err))
+				continue
+			}
+
+			err = caddy.Run(cfg)
+			if err != nil {
+				caddy.Log().Error("unable to load new configuration", zap.Error(err))
+				continue
+			}
+
+			caddy.Log().Info("configuration reloaded")
+		}
+	}
+
+	signal.Reset()
+	return caddy.ExitCodeSuccess, nil
 }
