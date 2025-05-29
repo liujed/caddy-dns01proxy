@@ -7,6 +7,8 @@ import (
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/caddy/v2/caddyconfig"
+	"github.com/caddyserver/caddy/v2/caddyconfig/caddyfile"
+	"github.com/caddyserver/caddy/v2/caddyconfig/httpcaddyfile"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp"
 	"github.com/caddyserver/caddy/v2/modules/caddyhttp/caddyauth"
 	"github.com/caddyserver/certmagic"
@@ -18,6 +20,12 @@ import (
 
 func init() {
 	caddy.RegisterModule(Handler{})
+	httpcaddyfile.RegisterHandlerDirective("dns01proxy", parseHandler)
+	httpcaddyfile.RegisterDirectiveOrder(
+		"dns01proxy",
+		httpcaddyfile.After,
+		"acme_server",
+	)
 }
 
 // A Caddy `http.handlers` module that implements the dns01proxy API.
@@ -43,6 +51,7 @@ type Handler struct {
 var _ caddy.Module = (*Handler)(nil)
 var _ caddy.Provisioner = (*Handler)(nil)
 var _ caddyhttp.MiddlewareHandler = (*Handler)(nil)
+var _ caddyfile.Unmarshaler = (*Handler)(nil)
 
 type RawAccount struct {
 	ClientPolicy
@@ -235,4 +244,156 @@ func (h *Handler) handleDNSRequest(
 		return 0, optionals.None[ResponseBody](),
 			fmt.Errorf("unknown handler mode: %q", mode)
 	}
+}
+
+// Parses a dns01proxy directive into a Handler instance.
+//
+// Syntax:
+//
+//	dns01proxy {
+//		dns <provider_name> [<params...>]
+//		dns_ttl <ttl>
+//		resolvers <resolvers...>
+//		user <userID> {
+//			password <hashed_password>
+//			allow_domains <domains...>
+//			deny_domains <domains...>
+//		}
+//	}
+func (h *Handler) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
+	// Consume directive name.
+	d.Next()
+
+	// No inline arguments allowed.
+	if d.NextArg() {
+		return d.ArgErr()
+	}
+
+	for nesting := d.Nesting(); d.NextBlock(nesting); {
+		switch d.Val() {
+		case "dns":
+			// Expect a provider name.
+			if !d.NextArg() {
+				return d.ArgErr()
+			}
+			provName := d.Val()
+			unm, err := caddyfile.UnmarshalModule(d, "dns.providers."+provName)
+			if err != nil {
+				return err
+			}
+			h.DNS.ProviderRaw = caddyconfig.JSONModuleObject(
+				unm,
+				"name",
+				provName,
+				nil,
+			)
+
+		case "dns_ttl":
+			var ttl string
+			if !d.AllArgs(&ttl) {
+				return d.ArgErr()
+			}
+			parsedTTL, err := caddy.ParseDuration(ttl)
+			if err != nil {
+				return err
+			}
+			h.DNS.TTL = optionals.Some(caddy.Duration(parsedTTL))
+
+		case "resolvers":
+			h.DNS.Resolvers = d.RemainingArgs()
+			if len(h.DNS.Resolvers) == 0 {
+				return d.Errf("must specify at least one resolver address")
+			}
+
+		case "user":
+			var userID string
+			if !d.AllArgs(&userID) {
+				return d.ArgErr()
+			}
+
+			account := RawAccount{
+				ClientPolicy: ClientPolicy{
+					UserID: userID,
+				},
+			}
+
+			// Parse the client declaration.
+			for nesting := d.Nesting(); d.NextBlock(nesting); {
+				var curDomainsRaw *[]string
+
+				fieldName := d.Val()
+				switch fieldName {
+				case "password":
+					var password string
+					if !d.AllArgs((&password)) {
+						return d.ArgErr()
+					}
+					if account.Password.IsSome() {
+						return fmt.Errorf("cannot specify more than one password per user")
+					}
+					account.Password = optionals.Some(password)
+					continue
+
+				case "allow_domains":
+					curDomainsRaw = &account.AllowDomainsRaw
+
+				case "deny_domains":
+					curDomainsRaw = &account.DenyDomainsRaw
+
+				default:
+					return d.Errf("unrecognized user directive: %q", fieldName)
+				}
+
+				if *curDomainsRaw != nil {
+					return d.Errf(
+						"cannot specify more than one %q policy per user",
+						fieldName,
+					)
+				}
+
+				domainList := d.RemainingArgs()
+				if len(domainList) == 0 {
+					return d.Errf("must specify at least one domain")
+				}
+
+				*curDomainsRaw = domainList
+			}
+
+			// Register the account.
+			h.AccountsRaw = append(h.AccountsRaw, account)
+
+		default:
+			return d.Errf("unrecognized dns01proxy handler directive: %q", d.Val())
+		}
+	}
+
+	return nil
+}
+
+// Unmarshals tokens from h into a new Handler instance that is ready for
+// provisioning.
+func parseHandler(
+	h httpcaddyfile.Helper,
+) (caddyhttp.MiddlewareHandler, error) {
+	var result Handler
+	err := result.UnmarshalCaddyfile(h.Dispenser)
+
+	if len(result.DNS.ProviderRaw) == 0 {
+		// No locally configured DNS provider. Use the global option.
+		val := h.Option("acme_dns")
+		if val == nil {
+			val = h.Option("dns")
+			if val == nil {
+				return nil, fmt.Errorf("must configure a DNS provider")
+			}
+		}
+		result.DNS.ProviderRaw = caddyconfig.JSONModuleObject(
+			val,
+			"name",
+			val.(caddy.Module).CaddyModule().ID.Name(),
+			nil,
+		)
+	}
+
+	return &result, err
 }
