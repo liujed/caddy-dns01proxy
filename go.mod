@@ -5,7 +5,7 @@ go 1.24.3
 require (
 	github.com/caddyserver/caddy/v2 v2.10.0
 	github.com/caddyserver/certmagic v0.23.0
-	github.com/libdns/libdns v1.0.0-beta.1
+	github.com/libdns/libdns v1.1.0
 	github.com/liujed/goutil v0.0.0
 	github.com/smallstep/certificates v0.28.3
 	github.com/spf13/cobra v1.9.1
