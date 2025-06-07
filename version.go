@@ -26,7 +26,7 @@ func Version() string {
 			if dep.Sum != "" {
 				buf.WriteString(" (")
 				buf.WriteString(dep.Sum)
-				buf.WriteString(" )")
+				buf.WriteString(")")
 			}
 			return buf.String()
 		}
