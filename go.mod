@@ -3,6 +3,7 @@ module github.com/liujed/caddy-dns01proxy
 go 1.24.3
 
 require (
+	github.com/BurntSushi/toml v1.4.0
 	github.com/caddyserver/caddy/v2 v2.10.0
 	github.com/caddyserver/certmagic v0.23.0
 	github.com/libdns/libdns v1.1.0

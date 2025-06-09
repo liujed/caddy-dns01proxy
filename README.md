@@ -28,93 +28,102 @@ download page](https://caddyserver.com/download).
 ## Using the command line
 
 This package adds a `dns01proxy` command to Caddy, making it convenient to run
-a standalone dns01proxy server. Naturally, because dns01proxy runs on Caddy,
-TLS/SSL certificates for the dns01proxy server itself are automatically
-obtained and renewed using the configured DNS credentials.
+a standalone dns01proxy server. Naturally, because dns01proxy runs on Caddy, it
+automatically obtains and renews its own TLS/SSL certificates using the
+configured DNS credentials.
 
 To run dns01proxy, just provide a config file:
 ```
-caddy dns01proxy --config dns01proxy.json
+caddy dns01proxy --config dns01proxy.toml
 ```
 
-Here is an example configuration for running at `https://dns01proxy.example.com`
-with Cloudflare as a DNS provider. The user's password is hashed using `caddy
-hash-password` with the bcrypt algorithm.
-```json
-{
-  "hostnames": ["dns01proxy.example.com"],
-  "listen": [":443"],
-  "dns": {
-    "provider": {
-      "name": "cloudflare",
-      "api_token": "{env.CF_API_TOKEN}"
-    }
-  },
-  "accounts": [
-    {
-      "username": "AzureDiamond",
-      "password": "$2a$14$N5bGBXf7zwAW9Ym7IQ/mxOHTGsvFNOTEAiN4/r1LnvfzYCpiWcHOa",
-      "allow_domains": ["private.example.com"]
-    }
-  ]
-}
+The example below configures dns01proxy for running at
+`https://dns01proxy.example.com` with Cloudflare as a DNS provider.
+
+If you prefer JSON, then just use the same JSON structure as the configuration
+for the [`dns01proxy` Caddy app](#configuring-a-dns01proxy-app-in-json).
+
+```toml
+hostnames = ["dns01proxy.example.com"]
+listen = [":443"]
+
+[dns.provider]
+name = "cloudflare"
+api_token = "{env.CF_API_TOKEN}"  # Reads from an environment variable.
+
+# One for each user. Password is hashed using `caddy hash-password` with the
+# bcrypt algorithm.
+[[accounts]]
+username = "AzureDiamond"
+password = "$2a$14$N5bGBXf7zwAW9Ym7IQ/mxOHTGsvFNOTEAiN4/r1LnvfzYCpiWcHOa"
+allow_domains = ["private.example.com"]
 ```
 
 <details>
-<summary>Full JSON structure</summary>
+<summary>Full structure</summary>
 
-```jsonc
-{
-  // The server's hostnames. Used for obtaining TLS/SSL certificates.
-  "hostnames": ["<hostname>"],
+```toml
+# The server's hostnames. Used for obtaining TLS/SSL certificates.
+hostnames = ["<hostname>"]
 
-  // The sockets on which to listen.
-  "listen": ["<ip_addr:port>"],
+# The sockets on which to listen.
+listen = ["<ip_addr:port>"]
 
-  // Configures the set of trusted proxies, for accurate logging of client IP
-  // addresses.
-  "trusted_proxies": {
-    // an http.ip_sources module
-    "source": "<module_name>",
-    // •••
-  },
+# Configures the set of trusted proxies, for accurate logging of client IP
+# addresses. This must be an `http.ip_sources` Caddy module. See Caddy's module
+# documentation at https://caddyserver.com/docs/modules/
+#
+# Note that Caddy documents its modules' options in JSON. You'll need to
+# configure the module in TOML. For example, to configure
+# `http.ip_sources.static`:
+#
+#     [trusted_proxies]
+#     source = "static"
+#     ranges = ["10.0.0.1", "192.168.0.1"]
+#
+[trusted_proxies]
+source = "<module_name>"
+# •••  # Module-specific configuration goes here.
 
-  "dns": {
-    // The DNS provider for publishing DNS-01 responses.
-    "provider": {
-      // A `dns.providers` module.
-      "name": "<provider_name>",
-      // ••• 
-    },
+[dns]
+# The TTL to use in DNS TXT records. Optional. Not usually needed.
+ttl = "<ttl>"  # e.g., "2m"
 
-    // The TTL to use in DNS TXT records. Optional. Not usually needed.
-    "ttl": "<ttl>",  // e.g., "2m"
+# Custom DNS resolvers to prefer over system or built-in defaults. Set this to
+# a public resolver if you are using split-horizon DNS.
+resolvers = ["<resolver>"]
 
-    // Custom DNS resolvers to prefer over system or built-in defaults. Set
-    // this to a public resolver if you are using split-horizon DNS.
-    "resolvers": ["<resolver>"]
-  },
+# The DNS provider for publishing DNS-01 responses. This must be a
+# `dns.providers` Caddy module. See Caddy's module documentation at
+# https://caddyserver.com/docs/modules/
+#
+# Note that Caddy documents its modules' options in JSON. You'll need to
+# configure the module in TOML. For example, to configure
+# `dns.providers.cloudflare`:
+#
+#     [dns.provider]
+#     name = "cloudflare"
+#     api_token = "{env.CF_API_TOKEN}"  # Reads from an environment variable.
+#
+[dns.provider]
+name = "<provider_name>"
+# •••  # Module-specific configuration goes here.
 
-  // Configures HTTP basic authentication and the domains for which each user
-  // can get TLS/SSL certificates.
-  "accounts": [
-    {
-      "user_id": "<userID>",
 
-      // To hash passwords, use `caddy hash-password`.
-      "password": "<hashed_password>",
+# Configures HTTP basic authentication and the domains for which each user can
+# get TLS/SSL certificates.
+[[accounts]]
+user_id = "<userID>"
+password = "<hashed_password>"  # To hash passwords, use `caddy hash-password`.
 
-      // These largely follow Smallstep's domain name rules:
-      //
-      //   https://smallstep.com/docs/step-ca/policies/#domain-names
-      //
-      // Due to a limitation in ACME and DNS-01, allowing a domain also allows
-      // wildcard certificates for that domain.
-      "allow_domains": ["<domain>"],
-      "deny_domains": ["<domain>"]
-    }
-  ]
-}
+# These largely follow Smallstep's domain name rules:
+#
+#   https://smallstep.com/docs/step-ca/policies/#domain-names
+#
+# Due to a limitation in ACME and DNS-01, allowing a domain also allows
+# wildcard certificates for that domain.
+allow_domains = ["<domain>"]
+deny_domains = ["<domain>"]
 ```
 
 </details>
@@ -249,8 +258,87 @@ a handler similar to the one in the Caddyfile example above.
 
 ## Configuring a dns01proxy app in JSON
 
-To configure dns01proxy as a Caddy app, use the same JSON structure as the
-configuration file for the [`dns01proxy` command](#using-the-command-line).
+Here is a sample configuration for the dns01proxy Caddy app, analogous to the
+TOML example for the [`dns01proxy` command](#using-the-command-line).
+
+```json
+{
+  "hostnames": ["dns01proxy.example.com"],
+  "listen": [":443"],
+  "dns": {
+    "provider": {
+      "name": "cloudflare",
+      "api_token": "{env.CF_API_TOKEN}"
+    }
+  },
+  "accounts": [
+    {
+      "username": "AzureDiamond",
+      "password": "$2a$14$N5bGBXf7zwAW9Ym7IQ/mxOHTGsvFNOTEAiN4/r1LnvfzYCpiWcHOa",
+      "allow_domains": ["private.example.com"]
+    }
+  ]
+}
+```
+
+<details>
+<summary>Full JSON structure</summary>
+
+```jsonc
+{
+  // The server's hostnames. Used for obtaining TLS/SSL certificates.
+  "hostnames": ["<hostname>"],
+
+  // The sockets on which to listen.
+  "listen": ["<ip_addr:port>"],
+
+  // Configures the set of trusted proxies, for accurate logging of client IP
+  // addresses.
+  "trusted_proxies": {
+    // an http.ip_sources module
+    "source": "<module_name>",
+    // •••
+  },
+
+  "dns": {
+    // The DNS provider for publishing DNS-01 responses.
+    "provider": {
+      // A `dns.providers` module.
+      "name": "<provider_name>",
+      // ••• 
+    },
+
+    // The TTL to use in DNS TXT records. Optional. Not usually needed.
+    "ttl": "<ttl>",  // e.g., "2m"
+
+    // Custom DNS resolvers to prefer over system or built-in defaults. Set
+    // this to a public resolver if you are using split-horizon DNS.
+    "resolvers": ["<resolver>"]
+  },
+
+  // Configures HTTP basic authentication and the domains for which each user
+  // can get TLS/SSL certificates.
+  "accounts": [
+    {
+      "user_id": "<userID>",
+
+      // To hash passwords, use `caddy hash-password`.
+      "password": "<hashed_password>",
+
+      // These largely follow Smallstep's domain name rules:
+      //
+      //   https://smallstep.com/docs/step-ca/policies/#domain-names
+      //
+      // Due to a limitation in ACME and DNS-01, allowing a domain also allows
+      // wildcard certificates for that domain.
+      "allow_domains": ["<domain>"],
+      "deny_domains": ["<domain>"]
+    }
+  ]
+}
+```
+
+</details>
 
 ## Acknowledgements
 
