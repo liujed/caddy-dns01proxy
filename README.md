@@ -40,9 +40,6 @@ caddy dns01proxy --config dns01proxy.toml
 The example below configures dns01proxy for running at
 `https://dns01proxy.example.com` with Cloudflare as a DNS provider.
 
-If you prefer JSON, then just use the same JSON structure as the configuration
-for the [`dns01proxy` Caddy app](#configuring-a-dns01proxy-app-in-json).
-
 ```toml
 hostnames = ["dns01proxy.example.com"]
 listen = [":443"]
@@ -127,6 +124,9 @@ deny_domains = ["<domain>"]
 ```
 
 </details>
+
+If you prefer JSON, you can use the same JSON structure as the configuration
+for the [`dns01proxy` Caddy app](#configuring-a-dns01proxy-app-in-json).
 
 ## Integrating into a Caddyfile
 
