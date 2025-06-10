@@ -209,9 +209,9 @@ func (h *Handler) handleDNSRequest(
 		}
 
 		// Build the DNS record to create/delete.
-		ttl := time.Duration(h.DNS.TTL.GetOrDefault(0))
-		if mode == hmCleanup {
-			ttl = 0
+		ttl := time.Duration(0)
+		if mode != hmCleanup && h.DNS.TTL != nil {
+			ttl = time.Duration(*h.DNS.TTL)
 		}
 		records := []libdns.Record{
 			libdns.TXT{
@@ -297,7 +297,8 @@ func (h *Handler) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 			if err != nil {
 				return err
 			}
-			h.DNS.TTL = optionals.Some(caddy.Duration(parsedTTL))
+			caddyTTL := caddy.Duration(parsedTTL)
+			h.DNS.TTL = &caddyTTL
 
 		case "resolvers":
 			h.DNS.Resolvers = d.RemainingArgs()

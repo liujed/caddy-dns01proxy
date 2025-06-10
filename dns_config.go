@@ -6,7 +6,6 @@ import (
 
 	"github.com/caddyserver/caddy/v2"
 	"github.com/caddyserver/certmagic"
-	"github.com/liujed/goutil/optionals"
 )
 
 type DNSConfig struct {
@@ -15,7 +14,11 @@ type DNSConfig struct {
 	Provider certmagic.DNSProvider `json:"-"`
 
 	// The TTL to use for the DNS TXT records when answering challenges.
-	TTL optionals.Optional[caddy.Duration] `json:"ttl"`
+	//
+	// XXX This should be an Optional[caddy.Duration], but Caddy's documentation
+	// generator can handle neither generics nor types with custom JSON
+	// representations.
+	TTL *caddy.Duration `json:"ttl,omitempty"`
 
 	// Custom DNS resolvers to prefer over system/built-in defaults. Often
 	// necessary to configure when using split-horizon DNS.
