@@ -16,17 +16,21 @@ func init() {
 	caddy.RegisterModule(App{})
 }
 
-// A Caddy application module that implements the dns01proxy server.
+// A proxy server for ACME DNS-01 challenges. Designed to work with acme.sh's
+// `acmeproxy`, lego's `httpreq`, and Caddy's `acmeproxy` DNS providers.
+//
+// This is a Caddy application module.
 type App struct {
 	Handler
 
 	// The server's hostnames. Used for obtaining TLS certificates.
 	Hostnames []string `json:"hostnames"`
 
-	// The sockets on which to listen.
+	// The sockets on which to listen. For example, "127.0.0.1:9095" or ":443".
 	Listen []string `json:"listen"`
 
-	// Configures the set of trusted proxies.
+	// Configures the set of trusted proxies, for accurate logging of client IP
+	// addresses.
 	TrustedProxiesRaw json.RawMessage `json:"trusted_proxies,omitempty" caddy:"namespace=http.ip_sources inline_key=source"`
 
 	// The http module instance that implements this app.

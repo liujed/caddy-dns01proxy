@@ -14,6 +14,12 @@ type ClientPolicy struct {
 	// Identifies the client to which this policy applies.
 	UserID string `json:"user_id"`
 
+	// Determines the domains for which the user can get TLS certificates. This
+	// largely follows Smallstep's domain name rules:
+	// https://smallstep.com/docs/step-ca/policies/#domain-names
+	//
+	// Due to a limitation in ACME and DNS-01, allowing a domain alsow allows
+	// wildcard certificates for that domain.
 	AllowDomainsRaw []string `json:"allow_domains,omitempty"`
 	DenyDomainsRaw  []string `json:"deny_domains,omitempty"`
 

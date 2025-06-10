@@ -28,12 +28,17 @@ func init() {
 	)
 }
 
-// A Caddy `http.handlers` module that implements the dns01proxy API.
+// Implements an API for proxying ACME DNS-01 challenges.
+//
+// This is a Caddy `http.handlers` module.
 type Handler struct {
 	DNS DNSConfig `json:"dns"`
 
-	// During provisioning, this is used to fill in [Authentication] and
-	// [ClientRegistry].
+	// Configures HTTP basic authentication and the domains for which each user
+	// can get TLS certificates.
+	//
+	// (During provisioning, this is used to fill in [Authentication] and
+	// [ClientRegistry].)
 	AccountsRaw []RawAccount `json:"accounts"`
 
 	// Specifies how clients should be authenticated. If absent, then clients must
@@ -55,7 +60,11 @@ var _ caddyfile.Unmarshaler = (*Handler)(nil)
 
 type RawAccount struct {
 	ClientPolicy
-	Password optionals.Optional[string] `json:"password"`
+
+	// The user's password, hashed using `caddy hash-password`. Optional. If
+	// omitted, then clients must be authenticated by an
+	// `http.handlers.authentication` instance earlier in the handler chain.
+	Password *string `json:"password,omitempty"`
 }
 
 func (Handler) CaddyModule() caddy.ModuleInfo {
@@ -79,10 +88,10 @@ func (h *Handler) Provision(ctx caddy.Context) error {
 	// Provision Authentication from AccountsRaw.
 	accountList := []caddyauth.Account{}
 	for _, rawAccount := range h.AccountsRaw {
-		if password, exists := rawAccount.Password.Get(); exists {
+		if rawAccount.Password != nil {
 			accountList = append(accountList, caddyauth.Account{
 				Username: rawAccount.UserID,
-				Password: password,
+				Password: *rawAccount.Password,
 			})
 		}
 	}
@@ -329,10 +338,10 @@ func (h *Handler) UnmarshalCaddyfile(d *caddyfile.Dispenser) error {
 					if !d.AllArgs((&password)) {
 						return d.ArgErr()
 					}
-					if account.Password.IsSome() {
+					if account.Password != nil {
 						return fmt.Errorf("cannot specify more than one password per user")
 					}
-					account.Password = optionals.Some(password)
+					account.Password = &password
 					continue
 
 				case "allow_domains":

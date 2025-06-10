@@ -9,19 +9,17 @@ import (
 )
 
 type DNSConfig struct {
+	// The DNS provider for publishing DNS-01 responses.
 	ProviderRaw json.RawMessage `json:"provider" caddy:"namespace=dns.providers inline_key=name"`
 
 	Provider certmagic.DNSProvider `json:"-"`
 
-	// The TTL to use for the DNS TXT records when answering challenges.
-	//
-	// XXX This should be an Optional[caddy.Duration], but Caddy's documentation
-	// generator can handle neither generics nor types with custom JSON
-	// representations.
+	// The TTL to use in DNS TXT records when answering challenges. Optional. Not
+	// usually needed.
 	TTL *caddy.Duration `json:"ttl,omitempty"`
 
-	// Custom DNS resolvers to prefer over system/built-in defaults. Often
-	// necessary to configure when using split-horizon DNS.
+	// Custom DNS resolvers to prefer over system or built-in defaults. Set this
+	// to a public resolver if you are using split-horizon DNS.
 	Resolvers []string `json:"resolvers,omitempty"`
 }
 
