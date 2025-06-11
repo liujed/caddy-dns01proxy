@@ -18,7 +18,7 @@ type ClientPolicy struct {
 	// largely follows Smallstep's domain name rules:
 	// https://smallstep.com/docs/step-ca/policies/#domain-names
 	//
-	// Due to a limitation in ACME and DNS-01, allowing a domain alsow allows
+	// Due to a limitation in ACME and DNS-01, allowing a domain also allows
 	// wildcard certificates for that domain.
 	AllowDomainsRaw []string `json:"allow_domains,omitempty"`
 	DenyDomainsRaw  []string `json:"deny_domains,omitempty"`

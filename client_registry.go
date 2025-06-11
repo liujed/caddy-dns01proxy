@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/caddyserver/caddy/v2"
-	"github.com/liujed/goutil/maps"
 	"github.com/liujed/goutil/optionals"
 	"github.com/smallstep/certificates/policy"
 )
@@ -36,7 +35,7 @@ const challengeDomainPrefix = "_acme-challenge."
 // A registry of known users and their corresponding policy configuration.
 type ClientRegistry struct {
 	// Maps each client's user ID to its policy configuration.
-	Clients maps.Map[string, *ClientPolicy]
+	clients map[string]*ClientPolicy
 }
 
 func (c *ClientRegistry) Provision(
@@ -44,9 +43,9 @@ func (c *ClientRegistry) Provision(
 	accountsRaw []RawAccount,
 ) error {
 	// Convert accountsRaw into a map keyed on user ID.
-	c.Clients = maps.NewHashMap[string, *ClientPolicy]()
+	c.clients = map[string]*ClientPolicy{}
 	for i, rawAccount := range accountsRaw {
-		if c.Clients.ContainsKey(rawAccount.UserID) {
+		if _, containsKey := c.clients[rawAccount.UserID]; containsKey {
 			return fmt.Errorf(
 				"account %d: user ID is not unique: %q",
 				i,
@@ -54,11 +53,11 @@ func (c *ClientRegistry) Provision(
 			)
 		}
 
-		c.Clients.Put(rawAccount.UserID, &rawAccount.ClientPolicy)
+		c.clients[rawAccount.UserID] = &rawAccount.ClientPolicy
 	}
 
 	// Provision the ClientPolicy instances.
-	for userID, ca := range c.Clients.Entries() {
+	for userID, ca := range c.clients {
 		err := ca.Provision(ctx)
 		if err != nil {
 			return fmt.Errorf(
@@ -88,7 +87,7 @@ func (r *ClientRegistry) AuthorizeUserChallengeDomain(
 			fmt.Errorf("unable to determine user ID (is authentication configured?)")
 	}
 
-	config, exists := r.Clients.Get(userID).Get()
+	config, exists := r.clients[userID]
 	if !exists {
 		return optionals.Some(DenyUnknownUser), nil
 	}

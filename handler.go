@@ -44,7 +44,10 @@ type Handler struct {
 	// Specifies how clients should be authenticated. If absent, then clients must
 	// be authenticated by an `http.handlers.authentication` instance earlier in
 	// the handler chain. Derived from [AccountsRaw].
-	Authentication optionals.Optional[*caddyauth.Authentication] `json:"-"`
+	//
+	// XXX This should be an Optional[*caddyauth.Authentication], but Caddy's
+	// documentation generator doesn't work with generics.
+	Authentication *caddyauth.Authentication `json:"-"`
 
 	// Identifies the domains at which each client is allowed to answer DNS-01
 	// challenges. Derived from [AccountsRaw].
@@ -111,7 +114,7 @@ func (h *Handler) Provision(ctx caddy.Context) error {
 			return fmt.Errorf("unable to provision authenticaiton: %w", err)
 		}
 
-		h.Authentication = optionals.Some(auth)
+		h.Authentication = auth
 	}
 
 	// Normally, we expect either all users or no users to have a password
@@ -158,8 +161,8 @@ func (h *Handler) ServeHTTP(
 	}
 
 	handlerImpl := jsonutil.WrapHandler(h.handleDNSRequest(mode))
-	if auth, exists := h.Authentication.Get(); exists {
-		return auth.ServeHTTP(w, req, handlerImpl)
+	if h.Authentication != nil {
+		return h.Authentication.ServeHTTP(w, req, handlerImpl)
 	}
 	return handlerImpl.ServeHTTP(w, req)
 }
