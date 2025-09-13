@@ -9,7 +9,7 @@ require (
 	github.com/libdns/libdns v1.1.1
 	github.com/liujed/goutil v0.0.0
 	github.com/smallstep/certificates v0.28.4
-	github.com/spf13/cobra v1.9.1
+	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
 	go.uber.org/zap v1.27.0
 )
