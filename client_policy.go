@@ -51,6 +51,13 @@ func (c *ClientPolicy) Provision(ctx caddy.Context) error {
 	domainPolicyOpts.AllowedNames = provisionX509NameOptions(&c.AllowDomainsRaw)
 	domainPolicyOpts.DeniedNames = provisionX509NameOptions(&c.DenyDomainsRaw)
 
+	// The Smallstep library returns a nil policy engine when given an empty
+	// policy. Detect this here to avoid a nil dereference later, when the policy
+	// gets used.
+	if domainPolicyOpts.AllowedNames == nil && domainPolicyOpts.DeniedNames == nil {
+		return fmt.Errorf("empty or missing domain policy given for client %q", c.UserID)
+	}
+
 	// Instantiate the domain policy.
 	var err error
 	c.DomainPolicy, err = x509policy.NewX509PolicyEngine(&domainPolicyOpts)
