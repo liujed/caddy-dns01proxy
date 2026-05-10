@@ -19,7 +19,9 @@ type DNSConfig struct {
 	TTL *caddy.Duration `json:"ttl,omitempty"`
 
 	// Custom DNS resolvers to prefer over system or built-in defaults. Set this
-	// to a public resolver if you are using split-horizon DNS.
+	// to a public resolver if you are using split-horizon DNS. Remember to also
+	// configure your ACME clients' resolvers, since both the ACME client and
+	// dns01proxy need to find your domain's SOA record.
 	Resolvers []string `json:"resolvers,omitempty"`
 }
 
