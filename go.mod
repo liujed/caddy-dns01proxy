@@ -5,7 +5,7 @@ go 1.25.1
 require (
 	github.com/BurntSushi/toml v1.6.0
 	github.com/caddyserver/caddy/v2 v2.11.4
-	github.com/caddyserver/certmagic v0.25.3
+	github.com/caddyserver/certmagic v0.25.4
 	github.com/libdns/libdns v1.1.1
 	github.com/liujed/goutil v0.0.0
 	github.com/smallstep/certificates v0.30.2
