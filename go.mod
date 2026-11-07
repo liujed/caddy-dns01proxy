@@ -10,7 +10,7 @@ require (
 	github.com/liujed/goutil v0.0.0
 	github.com/smallstep/certificates v0.30.2
 	github.com/spf13/cobra v1.10.2
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	go.uber.org/zap v1.28.0
 )
 
