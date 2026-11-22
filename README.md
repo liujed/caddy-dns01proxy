@@ -90,6 +90,13 @@ ttl = "<ttl>"  # e.g., "2m"
 # a public resolver if you are using split-horizon DNS.
 resolvers = ["<resolver>"]
 
+# For the server's own certificate: how long to wait before checking whether
+# the DNS record has propagated, and how long to keep checking (-1 disables
+# the check). Optional. Useful if your DNS provider's servers pick up new
+# records at different speeds.
+propagation_delay = "<duration>"    # e.g., "2m"
+propagation_timeout = "<duration>"  # e.g., "5m"
+
 # The DNS provider for publishing DNS-01 responses. This must be a
 # `dns.providers` Caddy module. See Caddy's module documentation at
 # https://caddyserver.com/docs/modules/
@@ -313,7 +320,14 @@ TOML example for the [`dns01proxy` command](#using-the-command-line).
 
     // Custom DNS resolvers to prefer over system or built-in defaults. Set
     // this to a public resolver if you are using split-horizon DNS.
-    "resolvers": ["<resolver>"]
+    "resolvers": ["<resolver>"],
+
+    // For the app's own certificate: how long to wait before checking
+    // whether the DNS record has propagated, and how long to keep checking
+    // (-1 disables the check). Optional. Useful if your DNS provider's
+    // servers pick up new records at different speeds.
+    "propagation_delay": "<duration>",   // e.g., "2m"
+    "propagation_timeout": "<duration>"  // e.g., "5m"
   },
 
   // Configures HTTP basic authentication and the domains for which each user

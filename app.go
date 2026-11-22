@@ -141,8 +141,10 @@ func (app *App) MakeTLSConfig() caddytls.TLS {
 							caddytls.ACMEIssuer{
 								Challenges: &caddytls.ChallengesConfig{
 									DNS: &caddytls.DNSChallengeConfig{
-										ProviderRaw: app.DNS.ProviderRaw,
-										Resolvers:   app.DNS.Resolvers,
+										ProviderRaw:        app.DNS.ProviderRaw,
+										Resolvers:          app.DNS.Resolvers,
+										PropagationDelay:   app.DNS.PropagationDelay,
+										PropagationTimeout: app.DNS.PropagationTimeout,
 									},
 								},
 							},

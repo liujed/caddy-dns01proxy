@@ -23,6 +23,19 @@ type DNSConfig struct {
 	// configure your ACME clients' resolvers, since both the ACME client and
 	// dns01proxy need to find your domain's SOA record.
 	Resolvers []string `json:"resolvers,omitempty"`
+
+	// How long to wait before starting to check whether the DNS record has
+	// propagated. Optional. Only used when the dns01proxy app obtains its own
+	// certificate; ACME clients of the proxy run their own checks. Useful for
+	// DNS providers whose authoritative servers pick up a new record at
+	// different speeds, where the propagation check can succeed against one
+	// server while the CA still sees NXDOMAIN at another.
+	PropagationDelay caddy.Duration `json:"propagation_delay,omitempty"`
+
+	// Maximum time to wait for the DNS record to propagate. Optional. Only
+	// used when the dns01proxy app obtains its own certificate. Set to -1 to
+	// disable propagation checks.
+	PropagationTimeout caddy.Duration `json:"propagation_timeout,omitempty"`
 }
 
 var _ caddy.Provisioner = (*Handler)(nil)
