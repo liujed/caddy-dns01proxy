@@ -229,7 +229,11 @@ func (h *Handler) handleDNSRequest(
 			libdns.TXT{
 				Name: libdns.RelativeName(reqBody.ChallengeFQDN, zone),
 				TTL:  ttl,
-				Text: `"` + reqBody.Value + `"`,
+				// Unquoted: since libdns v1, TXT.Text is the plain text and
+				// providers add whatever quoting their API needs (libdns/desec
+				// does) - quoting here as well ends up as literal quotes in the
+				// record, and the CA sees the wrong value.
+				Text: reqBody.Value,
 			},
 		}
 
